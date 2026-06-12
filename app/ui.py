@@ -9,10 +9,70 @@ import json
 import streamlit as st
 
 
+# ─────────────────────────────────────────────
+# SIDEBAR
+# ─────────────────────────────────────────────
 def render_sidebar():
     with st.sidebar:
-        st.markdown("<h2 style='font-size:0.85rem;'>🗺️ AGENT MAP</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='font-size:0.85rem;'>🎮 GDD CREATOR</h2>", unsafe_allow_html=True)
         st.markdown("---")
+
+        # ── API KEYS SECTION ──
+        st.markdown(
+            "<div style='font-family:\"Press Start 2P\",monospace;font-size:0.6rem;color:#2e7d32;'>🔑 API KEYS</div>",
+            unsafe_allow_html=True,
+        )
+        st.markdown(
+            "<div style='font-size:0.72rem;color:#4a7c59;margin:4px 0 8px 0;'>"
+            "Your keys stay in this session only.</div>",
+            unsafe_allow_html=True,
+        )
+
+        gemini_key    = st.text_input("Gemini API Key",    type="password", placeholder="AIzaSy...",   key="gemini_input")
+        anthropic_key = st.text_input("Anthropic API Key", type="password", placeholder="sk-ant-...", key="anthropic_input")
+
+        if st.button("✅ CONFIRM KEYS", use_container_width=True):
+            if not gemini_key.strip() or not anthropic_key.strip():
+                st.error("Please enter both keys.")
+            else:
+                # Store in session
+                st.session_state.gemini_api_key    = gemini_key.strip()
+                st.session_state.anthropic_api_key = anthropic_key.strip()
+                st.session_state.keys_confirmed    = True
+
+                # Inject into environment so router picks them up
+                os.environ["GEMINI_API_KEY"]    = gemini_key.strip()
+                os.environ["ANTHROPIC_API_KEY"] = anthropic_key.strip()
+
+                # Re-init router clients with new keys
+                import utils.router as router
+                import google.generativeai as genai
+                from anthropic import Anthropic
+                genai.configure(api_key=gemini_key.strip())
+                router.anthropic_client = Anthropic(api_key=anthropic_key.strip())
+
+                st.success("✅ Keys saved!")
+                st.rerun()
+
+        # Show status
+        if st.session_state.get("keys_confirmed"):
+            st.markdown(
+                "<div style='font-size:0.72rem;color:#1b5e20;margin-top:4px;'>"
+                "🟢 Gemini · 🟣 Claude — ready</div>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                "<div style='font-size:0.72rem;color:#b71c1c;margin-top:4px;'>"
+                "⚠️ Keys not set yet</div>",
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("---")
+
+        # ── AGENT MAP ──
+        st.markdown("<div style='font-family:\"Press Start 2P\",monospace;font-size:0.6rem;color:#2e7d32;'>🗺️ AGENT MAP</div>", unsafe_allow_html=True)
+        st.markdown("&nbsp;")
 
         agents = [
             ("📋", "PLANNER",    "planner_output",    "Gemini Flash",  "Idea → Pillars"),
@@ -26,24 +86,26 @@ def render_sidebar():
             badge_cls = "done" if done else "wait"
             badge_txt = "✓ DONE" if done else "WAIT"
             st.markdown(
-                f"<div style='margin-bottom:14px'>"
-                f"{icon} <b style='font-family:\"Press Start 2P\",monospace;font-size:0.62rem'>{name}</b>"
+                f"<div style='margin-bottom:12px'>"
+                f"{icon} <b style='font-family:\"Press Start 2P\",monospace;font-size:0.58rem'>{name}</b>"
                 f"<span class='checkpoint {badge_cls}'>{badge_txt}</span><br>"
-                f"<span style='font-size:0.72rem;color:#2e7d32;margin-left:22px'>{model}</span><br>"
-                f"<span style='font-size:0.72rem;color:#4a7c59;margin-left:22px'>{desc}</span>"
+                f"<span style='font-size:0.7rem;color:#2e7d32;margin-left:20px'>{model}</span><br>"
+                f"<span style='font-size:0.7rem;color:#4a7c59;margin-left:20px'>{desc}</span>"
                 f"</div>",
                 unsafe_allow_html=True,
             )
 
         st.markdown("---")
+
+        # ── FREE ASSETS ──
         st.markdown(
             "<div style='font-family:\"Press Start 2P\",monospace;font-size:0.52rem;color:#2e7d32;line-height:2;'>"
             "🆓 FREE ASSETS<br><br>"
-            "• OpenGameArt.org<br>"
-            "• itch.io/game-assets<br>"
-            "• Kenney.nl<br>"
-            "• CraftPix.net<br>"
-            "• Freesound.org"
+            "• <a href='https://opengameart.org' target='_blank' style='color:#388e3c'>OpenGameArt.org</a><br>"
+            "• <a href='https://itch.io/game-assets/free' target='_blank' style='color:#388e3c'>itch.io/game-assets</a><br>"
+            "• <a href='https://kenney.nl/assets' target='_blank' style='color:#388e3c'>Kenney.nl</a><br>"
+            "• <a href='https://craftpix.net/freebies' target='_blank' style='color:#388e3c'>CraftPix.net</a><br>"
+            "• <a href='https://freesound.org' target='_blank' style='color:#388e3c'>Freesound.org</a>"
             "</div>",
             unsafe_allow_html=True,
         )
@@ -52,10 +114,15 @@ def render_sidebar():
         if st.session_state.get("pipeline_run"):
             if st.button("🔄 NEW GAME"):
                 for k in list(st.session_state.keys()):
-                    del st.session_state[k]
+                    if k not in ("keys_confirmed", "gemini_api_key",
+                                 "anthropic_api_key", "gemini_input", "anthropic_input"):
+                        del st.session_state[k]
                 st.rerun()
 
 
+# ─────────────────────────────────────────────
+# INPUT
+# ─────────────────────────────────────────────
 def render_input(run_pipeline_fn):
     st.markdown("### 💡 YOUR GAME IDEA")
     idea = st.text_area(
@@ -79,6 +146,9 @@ def render_input(run_pipeline_fn):
             st.rerun()
 
 
+# ─────────────────────────────────────────────
+# RESULTS
+# ─────────────────────────────────────────────
 def render_results():
     idea       = st.session_state.game_idea
     planner    = st.session_state.planner_output    or {}
