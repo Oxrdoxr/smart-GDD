@@ -142,3 +142,21 @@ div[data-testid="stWarning"] p {
   color: #2e7d32 !important;
   font-weight: 600 !important;
 }
+
+/* ── Text cursor + fix red focus border on textarea ── */
+.stTextArea textarea {
+  caret-color: #1b5e20 !important;
+  cursor: text !important;
+}
+.stTextArea textarea:focus {
+  border-color: #1b5e20 !important;
+  box-shadow: 0 0 0 2px #a5d6a7 !important;
+  outline: none !important;
+}
+
+/* ── Fix red focus border on text inputs (API keys) ── */
+.stTextInput input:focus {
+  border-color: #1b5e20 !important;
+  box-shadow: 0 0 0 2px #a5d6a7 !important;
+  outline: none !important;
+}
